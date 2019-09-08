@@ -1,0 +1,140 @@
+---
+title: "MNIST ConvNet"
+author: "Advait"
+date: "7/31/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# In this exercise, CNN is implemented for MNIST Handwriting Recognition Dataset
+######################################
+# Installing packages and dependencies
+######################################
+install.packages("keras")
+library(keras)
+install.packages("tensorflow")
+library(tensorflow)
+install_tensorflow(version = "1.12")
+
+# Loading dataset
+mnist <- dataset_mnist()
+
+###############
+# Preprocessing
+###############
+x_train <- mnist$train$x
+y_train <- mnist$train$y
+x_test <- mnist$test$x
+y_test <- mnist$test$y
+
+dim(x_train)
+# [1] 60000    28    28
+
+# Assigning number of pixels (28X28) to variables
+img_rows <- 28
+img_cols <- 28
+
+# Correcting the dimensions
+x_train <- array_reshape(x_train
+                         , c(nrow(x_train)
+                         , img_rows
+                         , img_cols
+                         , 1))
+
+x_test <- array_reshape(x_test
+                         , c(nrow(x_test)
+                             , img_rows
+                             , img_cols
+                             , 1))
+input_shape <- c(img_rows, img_cols, 1)
+
+dim(x_train) 
+# [1] 60000    28    28     1
+
+# Normalizing the pixel values by dividing through 255
+x_train <- x_train/255
+x_test <- x_test/255
+
+# Converting the y variables to one-hot encoding i.e., dummification
+num_classes = 10
+y_train <- to_categorical(y_train, num_classes)
+y_test <- to_categorical(y_test, num_classes)
+
+y_train[1,]
+# [1] 0 0 0 0 0 1 0 0 0 0
+
+#########################################
+# Convolution and Neural Network Modeling
+#########################################
+model <- keras_model_sequential() %>%
+  layer_conv_2d(filters = 16
+                , kernel_size = c(3,3)
+                , activation = 'relu'
+                , input_shape = input_shape) %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>% 
+  layer_dropout(rate = 0.25) %>% 
+  layer_flatten() %>%
+  layer_dense(units = 10
+              , activation = 'relu') %>%
+  layer_dropout(rate = 0.5) %>% 
+  layer_dense(units = num_classes
+              , activation = 'softmax')
+                
+model %>% summary()
+# __________________________________________________________
+# Layer (type)              Output Shape           Param #  
+# ==========================================================
+#   conv2d (Conv2D)           (None, 26, 26, 16)     160      
+# __________________________________________________________
+# max_pooling2d (MaxPooling (None, 13, 13, 16)     0        
+#                __________________________________________________________
+#                dropout (Dropout)         (None, 13, 13, 16)     0        
+#                __________________________________________________________
+#                flatten (Flatten)         (None, 2704)           0        
+#                __________________________________________________________
+#                dense (Dense)             (None, 10)             27050    
+#                __________________________________________________________
+#                dropout_1 (Dropout)       (None, 10)             0        
+#                __________________________________________________________
+#                dense_1 (Dense)           (None, 10)             110      
+#                ==========================================================
+#                  Total params: 27,320
+#                Trainable params: 27,320
+#                Non-trainable params: 0
+#                __________________________________________________________
+# This means there are 27,320 learnable parameters
+
+##############################
+# Compilation and Optimization
+##############################
+model %>% compile(
+  loss = loss_categorical_crossentropy,
+  optimizer = optimizer_adadelta(),
+  metrics = c('accuracy')
+)
+
+##########
+# Training
+##########
+batch_size <- 128
+epochs <- 12
+
+# Train
+model %>% fit(
+  x_train, y_train
+  , batch_size = batch_size
+  , epochs = epochs
+  , validation_split = 0.2
+)
+
+#########################
+# Evaluating the accuracy
+#########################
+score <- model %>% evaluate(x_test
+                            , y_test)
+cat('Test loss: ', score$loss, "\n")
+# Test loss:  0.2435142 
+
+cat('Test accuracy: ', score$acc, "\n")
+# Test accuracy:  0.9642
+```
